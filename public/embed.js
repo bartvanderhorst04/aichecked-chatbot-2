@@ -17,7 +17,6 @@
 
   var ORIGIN = 'https://chat.aichecked.nl';
 
-  // Allow local testing: <script src="http://localhost:3000/embed.js">
   var currentScript = document.currentScript;
   if (currentScript && currentScript.src) {
     try {
@@ -28,41 +27,119 @@
   }
 
   var isOpen = false;
+  var isReady = false;
+  var host = document.createElement('div');
   var iframe = document.createElement('iframe');
+
   iframe.src = ORIGIN + '/embed';
   iframe.title = 'AIChecked AI-assistent';
   iframe.setAttribute('aria-label', 'AIChecked AI-assistent');
   iframe.setAttribute('allowtransparency', 'true');
+  iframe.setAttribute('scrolling', 'no');
 
-  var baseStyle = {
+  var hostStyle = {
     position: 'fixed',
-    bottom: '0',
     right: '0',
+    bottom: '0',
+    zIndex: '2147483646',
+    pointerEvents: 'none',
+    background: 'transparent',
+    border: 'none',
+    margin: '0',
+    padding: '0',
+    overflow: 'hidden',
+    width: '0',
+    height: '0',
+    opacity: '0',
+    visibility: 'hidden'
+  };
+  for (var hostKey in hostStyle) host.style[hostKey] = hostStyle[hostKey];
+
+  var iframeStyle = {
+    position: 'absolute',
+    top: '0',
+    left: '0',
     border: 'none',
     background: 'transparent',
     colorScheme: 'normal',
-    zIndex: '2147483646',
-    maxWidth: '100vw',
-    maxHeight: '100vh',
-    transition: 'width 0.2s ease, height 0.2s ease',
+    display: 'block',
+    margin: '0',
+    padding: '0',
+    pointerEvents: 'auto',
+    width: '0',
+    height: '0'
   };
-  for (var key in baseStyle) iframe.style[key] = baseStyle[key];
+  for (var iframeKey in iframeStyle) iframe.style[iframeKey] = iframeStyle[iframeKey];
 
-  function applySize() {
+  function px(value) {
+    return Math.round(value) + 'px';
+  }
+
+  function revealHost() {
+    if (isReady) return;
+    isReady = true;
+    host.style.opacity = '1';
+    host.style.visibility = 'visible';
+  }
+
+  function applyLayout() {
+    if (!isReady) {
+      host.style.width = '0';
+      host.style.height = '0';
+      iframe.style.width = '0';
+      iframe.style.height = '0';
+      return;
+    }
+
     var mobile = window.innerWidth < 768;
+
     if (isOpen) {
       if (mobile) {
-        iframe.style.width = '100vw';
-        iframe.style.height = '100vh';
+        var panelHeight = Math.min(Math.round(window.innerHeight * 0.7), 560);
+        var panelTop = window.innerHeight - 89 - panelHeight;
+
+        host.style.right = '12px';
+        host.style.bottom = '12px';
+        host.style.width = px(window.innerWidth - 24);
+        host.style.height = px(panelHeight + 77);
+
+        iframe.style.width = px(window.innerWidth);
+        iframe.style.height = px(window.innerHeight);
+        iframe.style.left = '-12px';
+        iframe.style.top = '-' + px(panelTop);
       } else {
-        // Panel (408px wide, ends 727px above the bottom) + margins.
+        host.style.right = '24px';
+        host.style.bottom = '24px';
+        host.style.width = '413px';
+        host.style.height = '703px';
+
         iframe.style.width = '450px';
         iframe.style.height = '760px';
+        iframe.style.left = '-13px';
+        iframe.style.top = '-33px';
       }
     } else {
-      // Just the launcher pill (max 275x70 at 24px offsets) + hover shadow.
-      iframe.style.width = mobile ? '262px' : '312px';
-      iframe.style.height = mobile ? '88px' : '106px';
+      if (mobile) {
+        host.style.right = '12px';
+        host.style.bottom = '12px';
+        host.style.width = '238px';
+        host.style.height = '65px';
+
+        iframe.style.width = '262px';
+        iframe.style.height = '88px';
+        iframe.style.left = '-12px';
+        iframe.style.top = '-11px';
+      } else {
+        host.style.right = '24px';
+        host.style.bottom = '24px';
+        host.style.width = '275px';
+        host.style.height = '70px';
+
+        iframe.style.width = '312px';
+        iframe.style.height = '106px';
+        iframe.style.left = '-13px';
+        iframe.style.top = '-12px';
+      }
     }
   }
 
@@ -70,16 +147,17 @@
     if (event.origin !== ORIGIN) return;
     var data = event.data;
     if (data && data.type === 'aichecked:widget') {
+      revealHost();
       isOpen = !!data.open;
-      applySize();
+      applyLayout();
     }
   });
 
-  window.addEventListener('resize', applySize);
+  window.addEventListener('resize', applyLayout);
 
   function mount() {
-    applySize();
-    document.body.appendChild(iframe);
+    host.appendChild(iframe);
+    document.body.appendChild(host);
   }
 
   if (document.body) {
