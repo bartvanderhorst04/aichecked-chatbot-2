@@ -143,6 +143,11 @@
     }
   }
 
+  iframe.addEventListener('load', function () {
+    revealHost();
+    applyLayout();
+  });
+
   window.addEventListener('message', function (event) {
     if (event.origin !== ORIGIN) return;
     var data = event.data;
