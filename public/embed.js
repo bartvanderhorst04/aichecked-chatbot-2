@@ -110,8 +110,8 @@
         iframe.style.left = '-12px';
         iframe.style.top = '-' + px(panelTop);
       } else {
-        host.style.right = '32px';
-        host.style.bottom = '36px';
+        host.style.right = '40px';
+        host.style.bottom = '60px';
         host.style.width = '413px';
         host.style.height = '703px';
 
@@ -132,8 +132,8 @@
         iframe.style.left = '-12px';
         iframe.style.top = '-11px';
       } else {
-        host.style.right = '32px';
-        host.style.bottom = '36px';
+        host.style.right = '40px';
+        host.style.bottom = '60px';
         host.style.width = '275px';
         host.style.height = '70px';
 
