@@ -93,12 +93,6 @@
     });
   }
 
-  function aicHasUserMessage() {
-    return aicMessages.some(function (aicMessage) {
-      return aicMessage.role === "user";
-    });
-  }
-
   aicReady(function () {
     var aicStyle = aicCreateElement("style");
     aicStyle.textContent = [
@@ -329,12 +323,6 @@
       aicLeadLabel.textContent = "Dank je, we nemen contact met je op.";
       aicLeadRow.classList.add("aic-hidden");
       aicLeadButton.disabled = false;
-    });
-
-    window.addEventListener("pagehide", function () {
-      if (aicHasUserMessage()) {
-        aicNotifyChatEmail(aicMessages.slice());
-      }
     });
 
     window.setTimeout(function () {

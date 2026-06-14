@@ -558,7 +558,6 @@ export default function AICheckedChatbot() {
   >('intro');
   const [activePainPoint, setActivePainPoint] = useState<PainPoint | null>(null);
   const [followUpIndex, setFollowUpIndex] = useState(0);
-  const latestMessagesRef = useRef<Message[]>([WELCOME_MESSAGE]);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
   const hadInputFocusRef = useRef(false);
@@ -640,23 +639,6 @@ export default function AICheckedChatbot() {
       // Email delivery should never block the chatbot experience.
     });
   }, []);
-
-  useEffect(() => {
-    latestMessagesRef.current = messages;
-  }, [messages]);
-
-  useEffect(() => {
-    const sendBeforeExit = () => {
-      const latestMessages = latestMessagesRef.current;
-
-      if (latestMessages.some((message) => message.role === 'user')) {
-        sendChatEmail(latestMessages);
-      }
-    };
-
-    window.addEventListener('pagehide', sendBeforeExit);
-    return () => window.removeEventListener('pagehide', sendBeforeExit);
-  }, [sendChatEmail]);
 
   // Auto-scroll
   useEffect(() => {
@@ -820,10 +802,16 @@ export default function AICheckedChatbot() {
   }
 
   function handleKennismaking(label = 'Kennismaking aangevraagd') {
-    setMessages([
+    const nextMessages = [
       ...messages,
       { id: uid(), role: 'user', content: label },
-    ]);
+    ];
+
+    if (label === 'Ontvang mijn AI Scan') {
+      sendChatEmail(nextMessages);
+    }
+
+    setMessages(nextMessages);
     setChatState('lead-form');
   }
 
