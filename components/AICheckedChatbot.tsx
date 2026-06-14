@@ -802,7 +802,7 @@ export default function AICheckedChatbot() {
   }
 
   function handleKennismaking(label = 'Kennismaking aangevraagd') {
-    const nextMessages = [
+    const nextMessages: Message[] = [
       ...messages,
       { id: uid(), role: 'user', content: label },
     ];
@@ -816,7 +816,7 @@ export default function AICheckedChatbot() {
   }
 
   async function handleLeadSubmit(data: LeadForm) {
-    const nextMessages = [
+    const nextMessages: Message[] = [
       ...messages,
       {
         id: uid(),
