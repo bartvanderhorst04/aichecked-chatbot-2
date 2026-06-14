@@ -34,7 +34,7 @@ vercel --prod
 Stel in Vercel (Settings → Environment Variables) in:
 
 - `OPENAI_API_KEY` = jouw OpenAI API key (verplicht)
-- `RESEND_API_KEY` = jouw Resend API key (optioneel, voor lead e-mails)
+- `RESEND_API_KEY` = jouw Resend API key voor chatbot notificaties
 
 Koppel daarna het domein **chat.aichecked.nl** aan het Vercel project
 (Settings → Domains) en voeg bij je DNS-provider een CNAME record toe:
@@ -65,7 +65,7 @@ pagina nooit blokkeert.
 ## Vercel Deployment
 
 ```bash
-# Installeer dependencies (geen nieuwe packages nodig)
+# Installeer dependencies
 npm install
 
 # Test lokaal
@@ -81,7 +81,7 @@ vercel --prod
 2. Settings → Environment Variables
 3. Voeg toe:
    - `OPENAI_API_KEY` = jouw OpenAI API key
-   - `RESEND_API_KEY` = jouw Resend API key (optioneel)
+   - `RESEND_API_KEY` = jouw Resend API key
 
 ---
 
@@ -94,13 +94,7 @@ vercel --prod
 3. Maak een API key aan
 4. Stel `RESEND_API_KEY` in als environment variable
 
-### Optie B: Andere e-mail provider
-
-Pas `app/api/lead/route.ts` aan om jouw eigen e-mail provider te gebruiken (Mailgun, SendGrid, AWS SES, etc.).
-
-### Optie C: Alleen console logging (development)
-
-Als geen `RESEND_API_KEY` is ingesteld, worden leads naar de server console gelogd. Handig voor testing.
+Alle chatbot notificaties lopen via `app/api/send-chat-email/route.ts`.
 
 ---
 

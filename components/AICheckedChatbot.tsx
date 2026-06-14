@@ -809,15 +809,6 @@ export default function AICheckedChatbot() {
       },
     ]);
 
-    try {
-      await fetch('/api/lead', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(data),
-      });
-    } catch {
-      // Silent fail — always show success to user
-    }
     setChatState('lead-success');
   }
 

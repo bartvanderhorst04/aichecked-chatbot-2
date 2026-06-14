@@ -307,20 +307,9 @@
           }
         ])
       );
-      aicPost("/api/lead", {
-        email: aicEmail,
-        messages: aicMessages.slice()
-      })
-        .then(function () {
-          aicLeadLabel.textContent = "Dank je, we nemen contact met je op.";
-          aicLeadRow.classList.add("aic-hidden");
-        })
-        .catch(function () {
-          aicLeadLabel.textContent = "Dat lukte niet. Controleer je e-mail en probeer opnieuw.";
-        })
-        .finally(function () {
-          aicLeadButton.disabled = false;
-        });
+      aicLeadLabel.textContent = "Dank je, we nemen contact met je op.";
+      aicLeadRow.classList.add("aic-hidden");
+      aicLeadButton.disabled = false;
     });
 
     window.setTimeout(function () {
