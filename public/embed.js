@@ -132,8 +132,8 @@
         iframe.style.left = '-12px';
         iframe.style.top = '-11px';
       } else {
-        host.style.right = '40px';
-        host.style.bottom = '60px';
+        host.style.right = '24px';
+        host.style.bottom = '24px';
         host.style.width = '275px';
         host.style.height = '70px';
 

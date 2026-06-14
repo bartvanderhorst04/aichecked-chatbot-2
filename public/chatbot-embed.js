@@ -70,7 +70,7 @@
   aicReady(function () {
     var aicStyle = aicCreateElement("style");
     aicStyle.textContent = [
-      ".aic-widget{position:fixed;right:40px;bottom:60px;z-index:2147483647;font-family:Inter,-apple-system,BlinkMacSystemFont,\"Segoe UI\",sans-serif;color:#fff;transform-origin:bottom right;}",
+      ".aic-widget{position:fixed;right:24px;bottom:24px;z-index:2147483647;font-family:Inter,-apple-system,BlinkMacSystemFont,\"Segoe UI\",sans-serif;color:#fff;transform-origin:bottom right;}",
       ".aic-widget *{box-sizing:border-box;}",
       ".aic-launcher{width:275px;height:70px;border:1px solid rgba(46,242,192,.55);border-radius:999px;background:" + AIC_BACKGROUND + ";color:#fff;box-shadow:0 18px 50px rgba(0,0,0,.38);display:flex;align-items:center;gap:14px;padding:10px 18px;cursor:pointer;transition:transform .18s ease,border-color .18s ease,box-shadow .18s ease;}",
       ".aic-launcher:hover{transform:translateY(-2px);border-color:" + AIC_ACCENT + ";box-shadow:0 20px 60px rgba(46,242,192,.18);}",
