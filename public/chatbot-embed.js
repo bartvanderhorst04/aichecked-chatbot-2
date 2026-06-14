@@ -104,7 +104,7 @@
       ".aic-launcher-copy{display:flex;flex-direction:column;line-height:1.18;text-align:left;}",
       ".aic-launcher-title{font-size:15px;font-weight:800;letter-spacing:.01em;}",
       ".aic-launcher-subtitle{font-size:12px;color:rgba(255,255,255,.72);margin-top:4px;}",
-      ".aic-panel{width:340px;height:520px;border:1px solid rgba(46,242,192,.42);border-radius:24px;background:" + AIC_BACKGROUND + ";box-shadow:0 24px 70px rgba(0,0,0,.48);overflow:hidden;display:none;flex-direction:column;}",
+      ".aic-panel{width:340px;height:520px;border:1px solid rgba(46,242,192,.42);border-radius:24px;background:" + AIC_BACKGROUND + ";box-shadow:0 24px 70px rgba(0,0,0,.48);overflow:visible;display:none;flex-direction:column;}",
       ".aic-panel.aic-open{display:flex;}",
       ".aic-header{padding:18px 18px 14px;border-bottom:1px solid rgba(255,255,255,.08);display:flex;align-items:center;justify-content:space-between;gap:12px;}",
       ".aic-heading{display:flex;align-items:center;gap:12px;min-width:0;}",

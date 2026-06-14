@@ -47,7 +47,7 @@
     border: 'none',
     margin: '0',
     padding: '0',
-    overflow: 'hidden',
+    overflow: 'visible',
     width: '0',
     height: '0',
     opacity: '0',
