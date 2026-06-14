@@ -243,11 +243,11 @@ function QuickReplyButtons({
   );
 }
 
-function CTASection({ onLead }: { onLead: () => void }) {
+function CTASection({ onLead }: { onLead: (label: string) => void }) {
   return (
     <div style={{ marginBottom: 14 }}>
       <button
-        onClick={onLead}
+          onClick={() => onLead('Ontvang mijn AI Scan')}
         style={{
           width: '100%',
           padding: '11px',
@@ -274,7 +274,7 @@ function CTASection({ onLead }: { onLead: () => void }) {
         🚀 Ontvang mijn AI Scan
       </button>
       <button
-        onClick={onLead}
+        onClick={() => onLead('Plan een kennismaking')}
         style={{
           width: '100%',
           padding: '10px',
@@ -600,6 +600,30 @@ export default function AICheckedChatbot() {
     [isLoading, isDesktopViewport]
   );
 
+  const sendChatEmail = useCallback((nextMessages: Message[]) => {
+    if (typeof window === 'undefined') return;
+
+    const pageUrl = document.referrer || window.location.href;
+    const messagesForEmail = nextMessages
+      .filter((message) => !message.isTyping)
+      .map((message) => ({
+        role: message.role,
+        content: message.content,
+      }));
+
+    void fetch('/api/send-chat-email', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        pageUrl,
+        timestamp: new Date().toISOString(),
+        messages: messagesForEmail,
+      }),
+    }).catch(() => {
+      // Email delivery should never block the chatbot experience.
+    });
+  }, []);
+
   // Auto-scroll
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -637,7 +661,10 @@ export default function AICheckedChatbot() {
       hadInputFocusRef.current =
         document.activeElement === inputRef.current;
 
-      setMessages((prev) => [...prev, userMsg, typingMsg]);
+      const nextMessages = [...messages.filter((m) => !m.isTyping), userMsg];
+
+      sendChatEmail(nextMessages);
+      setMessages([...nextMessages, typingMsg]);
       setInput('');
       setShowQuickReplies(false);
       setIsLoading(true);
@@ -690,7 +717,7 @@ export default function AICheckedChatbot() {
         setIsLoading(false);
       }
     },
-    [messages, isLoading]
+    [messages, isLoading, sendChatEmail]
   );
 
   // ── Onboarding flow: pain point → follow-up question → opportunity summary ──
@@ -703,11 +730,14 @@ export default function AICheckedChatbot() {
     setFollowUpIndex(0);
     setOnboarding('followup');
     setShowQuickReplies(false);
-    setMessages((prev) => [
-      ...prev,
-      { id: uid(), role: 'user', content: painPoint.label },
-      { id: uid(), role: 'assistant', content: painPoint.questions[0].question },
-    ]);
+    const nextMessages = [
+      ...messages,
+      { id: uid(), role: 'user' as const, content: painPoint.label },
+      { id: uid(), role: 'assistant' as const, content: painPoint.questions[0].question },
+    ];
+
+    sendChatEmail(nextMessages);
+    setMessages(nextMessages);
   }
 
   function handleFollowUpAnswer(answer: string) {
@@ -718,26 +748,32 @@ export default function AICheckedChatbot() {
     // More follow-up questions remaining for this pain point
     if (activePainPoint && nextIndex < activePainPoint.questions.length) {
       setFollowUpIndex(nextIndex);
-      setMessages((prev) => [
-        ...prev,
-        { id: uid(), role: 'user', content: answer.trim() },
+      const nextMessages = [
+        ...messages,
+        { id: uid(), role: 'user' as const, content: answer.trim() },
         {
           id: uid(),
-          role: 'assistant',
+          role: 'assistant' as const,
           content: activePainPoint.questions[nextIndex].question,
         },
-      ]);
+      ];
+
+      sendChatEmail(nextMessages);
+      setMessages(nextMessages);
       return;
     }
 
     setActivePainPoint(null);
     setFollowUpIndex(0);
     setOnboarding('done');
-    setMessages((prev) => [
-      ...prev,
-      { id: uid(), role: 'user', content: answer.trim() },
-      { id: uid(), role: 'assistant', content: OPPORTUNITY_SUMMARY },
-    ]);
+    const nextMessages = [
+      ...messages,
+      { id: uid(), role: 'user' as const, content: answer.trim() },
+      { id: uid(), role: 'assistant' as const, content: OPPORTUNITY_SUMMARY },
+    ];
+
+    sendChatEmail(nextMessages);
+    setMessages(nextMessages);
   }
 
   // Routes typed input: onboarding answers stay local, everything else goes to AI
@@ -755,11 +791,24 @@ export default function AICheckedChatbot() {
     sendMessage(text);
   }
 
-  function handleKennismaking() {
+  function handleKennismaking(label = 'Kennismaking aangevraagd') {
+    sendChatEmail([
+      ...messages,
+      { id: uid(), role: 'user', content: label },
+    ]);
     setChatState('lead-form');
   }
 
   async function handleLeadSubmit(data: LeadForm) {
+    sendChatEmail([
+      ...messages,
+      {
+        id: uid(),
+        role: 'user',
+        content: `Leadformulier verzonden: ${data.name} (${data.company}) - ${data.email}`,
+      },
+    ]);
+
     try {
       await fetch('/api/lead', {
         method: 'POST',

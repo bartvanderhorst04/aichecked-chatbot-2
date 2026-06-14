@@ -67,6 +67,21 @@
     );
   }
 
+  function aicNotifyChatEmail(aicMessagesForEmail) {
+    aicPost("/api/send-chat-email", {
+      pageUrl: document.referrer || window.location.href,
+      timestamp: new Date().toISOString(),
+      messages: aicMessagesForEmail.map(function (aicMessage) {
+        return {
+          role: aicMessage.role,
+          content: aicMessage.content
+        };
+      })
+    }).catch(function () {
+      // Email delivery should never block the chatbot experience.
+    });
+  }
+
   aicReady(function () {
     var aicStyle = aicCreateElement("style");
     aicStyle.textContent = [
@@ -252,6 +267,7 @@
       aicInput.value = "";
       aicInput.style.height = "auto";
       aicAddMessage("user", aicText);
+      aicNotifyChatEmail(aicMessages.slice());
       aicSetBusy(true);
 
       aicPost("/api/chat", {
@@ -283,6 +299,14 @@
       }
 
       aicLeadButton.disabled = true;
+      aicNotifyChatEmail(
+        aicMessages.concat([
+          {
+            role: "user",
+            content: "Leadformulier verzonden: " + aicEmail
+          }
+        ])
+      );
       aicPost("/api/lead", {
         email: aicEmail,
         messages: aicMessages.slice()
