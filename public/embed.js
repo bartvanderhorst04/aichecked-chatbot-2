@@ -51,7 +51,8 @@
     width: '0',
     height: '0',
     opacity: '0',
-    visibility: 'hidden'
+    visibility: 'hidden',
+    transformOrigin: 'bottom right'
   };
   for (var hostKey in hostStyle) host.style[hostKey] = hostStyle[hostKey];
 
@@ -91,7 +92,8 @@
       return;
     }
 
-    var mobile = window.innerWidth < 768;
+    var mobile = window.innerWidth <= 768;
+    host.style.transform = mobile ? 'scale(0.75)' : 'none';
 
     if (isOpen) {
       if (mobile) {
@@ -108,8 +110,8 @@
         iframe.style.left = '-12px';
         iframe.style.top = '-' + px(panelTop);
       } else {
-        host.style.right = '24px';
-        host.style.bottom = '24px';
+        host.style.right = '32px';
+        host.style.bottom = '36px';
         host.style.width = '413px';
         host.style.height = '703px';
 
@@ -130,8 +132,8 @@
         iframe.style.left = '-12px';
         iframe.style.top = '-11px';
       } else {
-        host.style.right = '24px';
-        host.style.bottom = '24px';
+        host.style.right = '32px';
+        host.style.bottom = '36px';
         host.style.width = '275px';
         host.style.height = '70px';
 

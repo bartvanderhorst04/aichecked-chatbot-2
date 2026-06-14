@@ -823,6 +823,7 @@ export default function AICheckedChatbot() {
           z-index: 9998;
           border-radius: 24px;
         }
+        .aic-label-mobile { display: none; }
         @media (max-width: 1023px) and (min-width: 768px) {
           .aic-launcher { bottom: 20px; right: 20px; width: 263px; height: 68px; }
           .aic-panel { bottom: 100px; right: 20px; width: 408px; height: 600px; border-radius: 24px; }
@@ -836,6 +837,8 @@ export default function AICheckedChatbot() {
             max-height: 560px;
             border-radius: 20px;
           }
+          .aic-label-desktop { display: none; }
+          .aic-label-mobile { display: inline; }
         }
       `}</style>
 
@@ -1312,6 +1315,7 @@ export default function AICheckedChatbot() {
         />
         {/* Label */}
         <span
+          className="aic-label-desktop"
           style={{
             color: '#ffffff',
             fontSize: 16,
@@ -1321,6 +1325,18 @@ export default function AICheckedChatbot() {
           }}
         >
           AI Assistent van AIChecked
+        </span>
+        <span
+          className="aic-label-mobile"
+          style={{
+            color: '#ffffff',
+            fontSize: 16,
+            fontWeight: 600,
+            letterSpacing: '-0.01em',
+            whiteSpace: 'nowrap',
+          }}
+        >
+          AI Assistent
         </span>
       </button>
     </>
