@@ -13,6 +13,9 @@
   var aicHasInteracted = false;
   var aicIsOpen = false;
   var aicMessages = [];
+  var aicConversationStartedAt = new Date().toISOString();
+  var aicConversationPageUrl = document.referrer || window.location.href;
+  var aicChatEmailSent = false;
 
   function aicReady(aicCallback) {
     if (document.readyState === "loading") {
@@ -40,6 +43,7 @@
   function aicPost(aicPath, aicPayload) {
     return fetch(AIC_API_BASE + aicPath, {
       method: "POST",
+      keepalive: aicPath === "/api/send-chat-email",
       headers: {
         "Content-Type": "application/json"
       },
@@ -67,10 +71,17 @@
     );
   }
 
-  function aicNotifyChatEmail(aicMessagesForEmail) {
+  function aicNotifyChatEmail(aicMessagesForEmail, aicContactDetails) {
+    if (aicChatEmailSent) {
+      return;
+    }
+
+    aicChatEmailSent = true;
     aicPost("/api/send-chat-email", {
-      pageUrl: document.referrer || window.location.href,
+      pageUrl: aicConversationPageUrl,
       timestamp: new Date().toISOString(),
+      conversationStartedAt: aicConversationStartedAt,
+      contactDetails: aicContactDetails,
       messages: aicMessagesForEmail.map(function (aicMessage) {
         return {
           role: aicMessage.role,
@@ -79,6 +90,12 @@
       })
     }).catch(function () {
       // Email delivery should never block the chatbot experience.
+    });
+  }
+
+  function aicHasUserMessage() {
+    return aicMessages.some(function (aicMessage) {
+      return aicMessage.role === "user";
     });
   }
 
@@ -267,7 +284,6 @@
       aicInput.value = "";
       aicInput.style.height = "auto";
       aicAddMessage("user", aicText);
-      aicNotifyChatEmail(aicMessages.slice());
       aicSetBusy(true);
 
       aicPost("/api/chat", {
@@ -305,11 +321,20 @@
             role: "user",
             content: "Leadformulier verzonden: " + aicEmail
           }
-        ])
+        ]),
+        {
+          email: aicEmail
+        }
       );
       aicLeadLabel.textContent = "Dank je, we nemen contact met je op.";
       aicLeadRow.classList.add("aic-hidden");
       aicLeadButton.disabled = false;
+    });
+
+    window.addEventListener("pagehide", function () {
+      if (aicHasUserMessage()) {
+        aicNotifyChatEmail(aicMessages.slice());
+      }
     });
 
     window.setTimeout(function () {

@@ -9,6 +9,12 @@ interface ChatEmailMessage {
 interface ChatEmailPayload {
   pageUrl?: string;
   timestamp?: string;
+  conversationStartedAt?: string;
+  contactDetails?: {
+    name?: string;
+    email?: string;
+    phone?: string;
+  };
   messages?: ChatEmailMessage[];
 }
 
@@ -38,6 +44,22 @@ function formatTranscript(messages: ChatEmailMessage[] = []) {
     .join('\n\n');
 }
 
+function formatContactDetails(contactDetails?: ChatEmailPayload['contactDetails']) {
+  if (!contactDetails) {
+    return 'Niet opgegeven.';
+  }
+
+  const name = String(contactDetails.name || '').trim() || 'Niet opgegeven';
+  const email = String(contactDetails.email || '').trim() || 'Niet opgegeven';
+  const phone = String(contactDetails.phone || '').trim() || 'Niet opgegeven';
+
+  return [
+    `Naam: ${name}`,
+    `E-mail: ${email}`,
+    `Telefoon: ${phone}`,
+  ].join('\n');
+}
+
 export async function POST(req: NextRequest) {
   try {
     if (!process.env.RESEND_API_KEY) {
@@ -47,8 +69,10 @@ export async function POST(req: NextRequest) {
     const data: ChatEmailPayload = await req.json();
     const messages = Array.isArray(data.messages) ? data.messages : [];
     const timestamp = formatTimestamp(data.timestamp);
+    const conversationStartedAt = formatTimestamp(data.conversationStartedAt || data.timestamp);
     const pageUrl = String(data.pageUrl || 'Niet opgegeven');
     const transcript = formatTranscript(messages);
+    const contactDetails = formatContactDetails(data.contactDetails);
 
     const resend = new Resend(process.env.RESEND_API_KEY);
 
@@ -63,8 +87,14 @@ Nieuwe chatbot aanvraag - AIChecked.nl
 Pagina URL:
 ${pageUrl}
 
-Timestamp:
+Datum en tijd gesprek:
+${conversationStartedAt}
+
+E-mail verzonden op:
 ${timestamp}
+
+Contactgegevens:
+${contactDetails}
 
 Volledig gesprek:
 ${transcript}
