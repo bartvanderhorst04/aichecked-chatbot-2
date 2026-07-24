@@ -2,8 +2,8 @@ import type { Metadata } from 'next';
 import './globals.css';
 
 export const metadata: Metadata = {
-  title: 'AIChecked Chatbot — Test',
-  description: 'Local test environment for the AIChecked.nl chatbot widget.',
+  title: 'Wim van Breda chatbot',
+  description: 'Embedbare chatbot-widget voor Wim van Breda.',
 };
 
 export default function RootLayout({

@@ -1,121 +1,96 @@
-# AIChecked.nl Chatbot Widget
+# Wim van Breda chatbot-widget
 
-Een premium floating chatbot widget voor AIChecked.nl. Vervangt de bestaande "Plan een gratis kennismaking" CTA-knop en integreert naadloos in de bestaande website.
+Een embedbare, meertalige Next.js-widget voor snelle routering van vragen over onderdelen, machines, onderhoud, reparatie, occasions, verhuur en algemeen contact.
 
----
+## Installatie en lokaal testen
 
-## Bestanden
-
-```
-components/
-  AICheckedChatbot.tsx    ← Hoofdcomponent (voeg toe aan je homepage)
-
-app/api/
-  chat/route.ts           ← OpenAI chat API endpoint
-  lead/route.ts           ← Lead capture & e-mail notificatie endpoint
-
-.env.example              ← Omgevingsvariabelen voorbeeld
-```
-
----
-
-## Installatie op AIChecked.nl (statische HTML website)
-
-De chatbot draait als standalone app op **chat.aichecked.nl** (Vercel). De statische
-website embedt hem via één script tag — er zijn geen API keys nodig op de website
-zelf; alle OpenAI- en e-mailaanroepen gebeuren server-side op chat.aichecked.nl.
-
-### Stap 1: Deploy deze app naar Vercel
+Benodigd: Node.js 20+, npm en een Resend-account met een geverifieerd verzenddomein.
 
 ```bash
-vercel --prod
+cp .env.example .env.local
+npm install
+npm run dev
 ```
 
-Stel in Vercel (Settings → Environment Variables) in:
+Open vervolgens `http://localhost:3000`. Gebruik `npm run build` vóór iedere productie-deploy.
 
-- `OPENAI_API_KEY` = jouw OpenAI API key (verplicht)
-- `RESEND_API_KEY` = jouw Resend API key voor chatbot notificaties
+## Environment variables
 
-Koppel daarna het domein **chat.aichecked.nl** aan het Vercel project
-(Settings → Domains) en voeg bij je DNS-provider een CNAME record toe:
-`chat` → `cname.vercel-dns.com`.
+Vul uitsluitend `.env.local` lokaal of Vercel Environment Variables in:
 
-### Stap 2: Plak de embed script tag op de website
+- `OPENAI_API_KEY`: OpenAI-sleutel, uitsluitend server-side.
+- `RESEND_API_KEY`: Resend-sleutel voor formuliermails.
+- `MAIL_FROM`: geverifieerde Resend-afzender, bijvoorbeeld `Wim van Breda chatbot <chatbot@uwdomein.nl>`.
+- `WORKSHOP_TO`, `SALES_TO`, `PARTS_TO`, `RECEPTION_TO`: interne ontvangers.
+- `WVB_PHONE_NUMBER`: telefoonnummer zonder `tel:`; deze waarde voedt de belknop.
+- `NEXT_PUBLIC_SITE_URL`: productie-URL van deze widget-app.
 
-Voeg op elke pagina van aichecked.nl, vlak voor `</body>`, toe:
+`MAIL_HOST`, `MAIL_PORT`, `MAIL_USER` en `MAIL_PASS` zijn gereserveerd indien later Nodemailer wordt gekozen; de huidige implementatie gebruikt Resend. Plaats nooit een echte sleutel in `.env.example`, broncode of WordPress.
+
+## E-mailroutering
+
+Alle routering staat centraal in `lib/contactRouting.ts`. De browser stuurt alleen een contacttype; de server bepaalt het bijbehorende environment-variable-adres.
+
+- `WORKSHOP` / `WORKSHOP_CALLBACK` → `WORKSHOP_TO`
+- `SALES` / `SALES_CALLBACK` → `SALES_TO`
+- `PARTS` / `PARTS_CALLBACK` → `PARTS_TO`
+- `RECEPTION` → `RECEPTION_TO`
+
+Ontvangers zijn nooit zichtbaar of kiesbaar voor bezoekers. `app/api/contact/route.ts` valideert invoer, honeypot en rate-limit; `lib/mail.ts` verstuurt de HTML-mail met relevante paginacontext.
+
+## OpenAI en veiligheid
+
+`/api/chat` gebruikt OpenAI uitsluitend voor open vragen. Beslisboomkeuzes blijven client-side. De API past vooraf prijs- en prompt-injection-guardrails toe; de OpenAI-systeeminstructie krijgt alleen de lokale knowledge base mee. Sleutels, prompts en interne configuratie worden niet aan de browser teruggegeven.
+
+Beide API-routes hebben een in-memory rate limit en een honeypot. Gebruik voor meer dan één serverless instance een gedeelde rate-limitopslag (bijvoorbeeld Upstash Redis) vóór grootschalige productie. Er is geen analytics en er worden geen aanvragen opgeslagen.
+
+## Knowledge base en wijzigingen
+
+- Nieuwe feitelijke informatie: `knowledge/wimvanbreda.md` en `knowledge/links.md`.
+- Gedrags- of veiligheidsregels: `knowledge/regels.md` en `knowledge/verboden.md`.
+- Nieuwe flow of afdeling: `lib/contactRouting.ts` plus de acties in `components/ChatWidget.tsx`.
+- Nieuwe taal/teksten: `lib/translations.ts` en de flowteksten in `ChatWidget.tsx`.
+- Huisstijl: de uitsluitend `wvb-chatbot-`-scoped regels in `app/globals.css`.
+- Telefoonnummer: `WVB_PHONE_NUMBER`.
+
+Controleer alle knowledge-base-aanpassingen tegen wimvanbreda.nl voordat ze live gaan.
+
+## Vercel deploy
+
+1. Push de repository naar de gekozen Git-provider en importeer hem in Vercel.
+2. Voeg alle variabelen uit `.env.example` toe in **Settings → Environment Variables** (zonder `.env.local` te uploaden).
+3. Configureer een geverifieerd `MAIL_FROM`-domein in Resend.
+4. Deploy en test `/widget`, `/api/chat` en een contactformulier.
+5. Stel de productie-URL in bij `NEXT_PUBLIC_SITE_URL`.
+
+De CSP in `next.config.js` staat iframe-embedding alleen toe vanaf `wimvanbreda.nl` en `www.wimvanbreda.nl`. Voeg een extra geautoriseerd domein daar expliciet toe.
+
+## WordPress embed
+
+Plaats vlak vóór `</body>` een script tag, na de Vercel-deploy:
 
 ```html
-<script src="https://chat.aichecked.nl/embed.js" defer></script>
+<script src="https://MIJN-DOMAIN.nl/widget.js" async></script>
 ```
 
-Dat is alles. Het script (`public/embed.js`) injecteert een iframe naar
-`https://chat.aichecked.nl/embed` rechtsonder op de pagina en vergroot/verkleint
-het iframe automatisch wanneer de chat opent of sluit, zodat het de rest van de
-pagina nooit blokkeert.
+`widget.js` initialiseert slechts één iframe en de widget draait geïsoleerd van WordPress-CSS. Test op desktop, tablet en mobiel. Gebruik de echte Vercel-domeinnaam in plaats van `MIJN-DOMAIN.nl`.
 
-### Beveiliging
+## Tests en acceptatiecheck
 
-- Alleen `aichecked.nl` en `www.aichecked.nl` mogen de widget embedden
-  (afgedwongen via een `frame-ancestors` CSP-header in `next.config.js`).
-- API keys staan uitsluitend als environment variables op Vercel en komen nooit
-  in de browser of op de statische website terecht.
+`tests/contactRouting.test.ts` dekt contacttypes, callbacks, prijsregel, promptbescherming en classificatie. Controleer daarnaast handmatig:
 
----
+1. Onderdelen → webshop; onderdeel niet gevonden → PARTS.
+2. Onderhoud/reparatie en callback → WORKSHOP / WORKSHOP_CALLBACK.
+3. Nieuwe machine, verhuur en occasion → SALES.
+4. Hoofdmenu “Contact opnemen” → receptie.
+5. Prijsvraag toont exact de verplichte tekst en formulier.
+6. Engels en Duits schakelen interface en antwoorden consequent om.
+7. Open op een machinepagina en controleer URL/paginatitel in de ontvangen e-mail.
+8. Controleer mobiel, toetsenbordfocus en foutmeldingen in het formulier.
 
-## Vercel Deployment
+## Veelvoorkomende fouten
 
-```bash
-# Installeer dependencies
-npm install
-
-# Test lokaal
-npm run dev
-
-# Deploy naar Vercel
-vercel --prod
-```
-
-**Vercel environment variables instellen:**
-
-1. Ga naar je Vercel project dashboard
-2. Settings → Environment Variables
-3. Voeg toe:
-   - `OPENAI_API_KEY` = jouw OpenAI API key
-   - `RESEND_API_KEY` = jouw Resend API key
-
----
-
-## E-mail notificaties
-
-### Optie A: Resend (aanbevolen)
-
-1. Maak een account op [resend.com](https://resend.com)
-2. Verifieer je domein `aichecked.nl`
-3. Maak een API key aan
-4. Stel `RESEND_API_KEY` in als environment variable
-
-Alle chatbot notificaties lopen via `app/api/send-chat-email/route.ts`.
-
----
-
-## Wat de chatbot doet
-
-- **Vervangt** de bestaande "Plan een gratis kennismaking" floating button
-- **Behoudt** de CTA als prominente button binnen de chat
-- **Converseert** in het Nederlands via GPT-4o-mini
-- **Herkent** koopsignalen en toont automatisch het lead capture formulier
-- **Stuurt** lead notificaties naar info@aichecked.nl
-- **Toont** AIChecked.nl contactgegevens na succesvolle aanvraag
-
----
-
-## Aanpassen
-
-De chatbot gebruikt uitsluitend inline CSS en geen externe dependencies, zodat hij de bestaande website styling niet beïnvloedt.
-
-Om kleuren of teksten aan te passen, bewerk je direct `components/AICheckedChatbot.tsx`:
-- Primaire kleur: `#2EF2C0` (emerald green)
-- Achtergrond: `#050505` / `#0B0B0B`
-- Welkomstbericht: `WELCOME_MESSAGE.content`
-- Quick reply opties: `QUICK_REPLIES` array
-- Systeemprompt: `SYSTEM_PROMPT` in `app/api/chat/route.ts`
+- **E-mail wordt niet verstuurd:** controleer `RESEND_API_KEY`, domeinverificatie en `MAIL_FROM`.
+- **Geen AI-antwoord:** controleer `OPENAI_API_KEY` en de OpenAI-quotumstatus; de widget valt veilig terug op het contactformulier.
+- **Embed blijft leeg:** controleer de productie-URL, CSP `frame-ancestors` en browser-console.
+- **Belknop werkt niet:** vul `WVB_PHONE_NUMBER` in en deploy opnieuw.
