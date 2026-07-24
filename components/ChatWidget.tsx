@@ -87,6 +87,8 @@ export default function ChatWidget({ phoneNumber, parentOrigin, pageContext }: P
   }
   function action(action: QuickAction) {
     if (action.id === 'call') { if (phoneNumber) window.location.href = `tel:${phoneNumber}`; return; }
+    if (action.id === 'machine-options') { add(t.machineSelectionTitle); setActions(t.choices.machineOptions); return; }
+    if (action.id === 'back-topics') { setActions(t.menu); setShowForm(false); return; }
     if (action.id === 'callback') return openForm(contactTypeFor(flow, true));
     if (action.id === 'form' || action.id === 'parts-form') return openForm(contactTypeFor(flow));
     if (action.id === 'ask') return start('ask');

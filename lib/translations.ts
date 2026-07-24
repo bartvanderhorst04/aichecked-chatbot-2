@@ -1,5 +1,5 @@
 export type Language = 'nl' | 'en' | 'de';
-export type LocalizedAction = { id: string; label: string; href?: string };
+export type LocalizedAction = { id: string; label: string; href?: string; description?: string };
 export const languageOptions: Array<{ code: Language; label: string }> = [
   { code: 'nl', label: 'Nederlands' },
   { code: 'en', label: 'English' },
@@ -18,7 +18,8 @@ type Labels = {
   disclaimer: string; disclaimerLabel: string; disclaimerInfo: string; privacyNotice: string;
   flow: Record<'parts' | 'workshop' | 'occasion' | 'rental' | 'machine' | 'general' | 'ask', string>;
   followUp: Record<'new' | 'existing' | 'unknown', string>;
-  menu: LocalizedAction[]; choices: Record<'parts' | 'machine' | 'workshop' | 'occasion' | 'rental' | 'general' | 'machineNew' | 'machineExisting', LocalizedAction[]>;
+  machineSelectionTitle: string; backTopics: string;
+  menu: LocalizedAction[]; choices: Record<'parts' | 'machine' | 'workshop' | 'occasion' | 'rental' | 'general' | 'machineNew' | 'machineExisting' | 'machineOptions', LocalizedAction[]>;
 };
 
 export const translations: Record<Language, Labels> = {
@@ -44,7 +45,8 @@ export const translations: Record<Language, Labels> = {
     },
     flow: { parts: 'Voor onderdelen kunt u terecht in onze webshop. Daar vindt u ons actuele assortiment.', workshop: 'Voor onderhoud of reparatie kunt u telefonisch contact opnemen of een terugbelverzoek achterlaten. Onze werkplaats helpt u graag verder.', occasion: 'Ons occasionaanbod wisselt regelmatig. Bekijk daarom het actuele aanbod op onze website.', rental: 'Voor verhuur kunt u terecht op onze verhuurpagina. Heeft u een vraag of wilt u een aanvraag indienen? Laat dan uw gegevens achter.', machine: 'Gaat uw vraag over een nieuwe machine of een bestaande machine?', general: 'Hoe wilt u contact met ons opnemen?', ask: 'Waarmee kunnen wij u helpen?' },
     followUp: { new: 'Waar wilt u meer over weten?', existing: 'Waar gaat uw vraag over?', unknown: 'Geen probleem. Om welke machine of werkzaamheden gaat het?' },
-    menu: [{ id: 'parts', label: 'Onderdeel zoeken' }, { id: 'workshop', label: 'Reparatie / service' }, { id: 'occasion', label: 'Occasions' }, { id: 'rental', label: 'Machine huren' }, { id: 'general', label: 'Contact' }],
+    machineSelectionTitle: 'Waar bent u naar op zoek?', backTopics: 'Terug naar onderwerpen',
+    menu: [{ id: 'parts', label: 'Onderdeel zoeken' }, { id: 'workshop', label: 'Reparatie / service' }, { id: 'occasion', label: 'Occasions' }, { id: 'machine-options', label: 'Machine kopen of huren' }, { id: 'general', label: 'Contact' }],
     choices: {
       parts: [{ id: 'webshop', label: 'Naar de webshop', href: 'https://webshop.wimvanbreda.nl' }, { id: 'parts-form', label: 'Onderdeel niet gevonden' }, { id: 'callback', label: 'Terugbelverzoek' }, { id: 'form', label: 'Contact' }, { id: 'ask', label: 'Nog een vraag stellen' }],
       machine: [{ id: 'new', label: 'Nieuwe machine' }, { id: 'existing', label: 'Bestaande machine' }, { id: 'unknown', label: 'Ik weet het niet' }],
@@ -54,6 +56,7 @@ export const translations: Record<Language, Labels> = {
       general: [{ id: 'call', label: 'Bel direct' }, { id: 'form', label: 'Stel uw vraag' }],
       machineNew: [{ id: 'specifications', label: 'Specificaties' }, { id: 'application', label: 'Toepassing' }, { id: 'form', label: 'Machine aanvragen' }, { id: 'rental', label: 'Verhuur' }, { id: 'occasion', label: 'Occasion' }, { id: 'ask', label: 'Stel uw vraag' }, { id: 'callback', label: 'Terugbelverzoek' }, { id: 'form', label: 'Contact opnemen' }],
       machineExisting: [{ id: 'parts', label: 'Onderdelen' }, { id: 'workshop', label: 'Onderhoud' }, { id: 'workshop', label: 'Reparatie' }, { id: 'documentation', label: 'Documentatie' }, { id: 'ask', label: 'Stel uw vraag' }, { id: 'form', label: 'Contact opnemen' }],
+      machineOptions: [{ id: 'new-machine-link', label: 'Nieuwe machine kopen', description: 'Bekijk het volledige aanbod nieuwe machines.', href: 'https://wimvanbreda.nl/aanbod/machine-overzicht/' }, { id: 'rental-link', label: 'Machine huren', description: 'Bekijk beschikbare machines voor tijdelijke verhuur.', href: 'https://wimvanbreda.nl/verhuur/' }, { id: 'occasion-link', label: 'Occasion bekijken', description: 'Bekijk ons actuele aanbod gebruikte machines.', href: 'https://wimvanbreda.nl/occasions-overzicht/' }, { id: 'back-topics', label: 'Terug naar onderwerpen' }],
     },
   },
   en: {
@@ -78,7 +81,8 @@ export const translations: Record<Language, Labels> = {
     },
     flow: { parts: 'For parts, please visit our webshop.', workshop: 'Our workshop will be happy to help with maintenance or repairs.', occasion: 'View our current used-machine range on our website.', rental: 'For rentals, please visit our rental page.', machine: 'Is your question about a new or existing machine?', general: 'How would you like to contact us?', ask: 'Please type your question.' },
     followUp: { new: 'What would you like to know more about?', existing: 'What is your question about?', unknown: 'No problem. Which machine or work is this about?' },
-    menu: [{ id: 'parts', label: 'Find a part' }, { id: 'workshop', label: 'Repair / service' }, { id: 'occasion', label: 'Used machines' }, { id: 'rental', label: 'Machine rental' }, { id: 'general', label: 'Contact' }],
+    machineSelectionTitle: 'What are you looking for?', backTopics: 'Back to topics',
+    menu: [{ id: 'parts', label: 'Find a part' }, { id: 'workshop', label: 'Repair / service' }, { id: 'occasion', label: 'Used machines' }, { id: 'machine-options', label: 'Buy or rent a machine' }, { id: 'general', label: 'Contact' }],
     choices: {
       parts: [{ id: 'webshop', label: 'Go to webshop', href: 'https://webshop.wimvanbreda.nl' }, { id: 'parts-form', label: 'Part not found' }, { id: 'callback', label: 'Request a callback' }, { id: 'form', label: 'Contact' }, { id: 'ask', label: 'Ask another question' }],
       machine: [{ id: 'new', label: 'New machine' }, { id: 'existing', label: 'Existing machine' }, { id: 'unknown', label: 'I do not know' }],
@@ -88,6 +92,7 @@ export const translations: Record<Language, Labels> = {
       general: [{ id: 'call', label: 'Call now' }, { id: 'form', label: 'Ask your question' }],
       machineNew: [{ id: 'specifications', label: 'Specifications' }, { id: 'application', label: 'Application' }, { id: 'form', label: 'Request a machine' }, { id: 'rental', label: 'Rental' }, { id: 'occasion', label: 'Used machines' }, { id: 'ask', label: 'Ask your question' }, { id: 'callback', label: 'Request a callback' }, { id: 'form', label: 'Contact' }],
       machineExisting: [{ id: 'parts', label: 'Parts' }, { id: 'workshop', label: 'Maintenance' }, { id: 'workshop', label: 'Repair' }, { id: 'documentation', label: 'Documentation' }, { id: 'ask', label: 'Ask your question' }, { id: 'form', label: 'Contact' }],
+      machineOptions: [{ id: 'new-machine-link', label: 'Buy a new machine', description: 'View the complete range of new machines.', href: 'https://wimvanbreda.nl/aanbod/machine-overzicht/' }, { id: 'rental-link', label: 'Rent a machine', description: 'View available machines for temporary rental.', href: 'https://wimvanbreda.nl/verhuur/' }, { id: 'occasion-link', label: 'View used machines', description: 'View our current range of used machines.', href: 'https://wimvanbreda.nl/occasions-overzicht/' }, { id: 'back-topics', label: 'Back to topics' }],
     },
   },
   de: {
@@ -112,7 +117,8 @@ export const translations: Record<Language, Labels> = {
     },
     flow: { parts: 'Für Ersatzteile besuchen Sie bitte unseren Webshop.', workshop: 'Unsere Werkstatt hilft Ihnen gerne bei Wartung oder Reparatur.', occasion: 'Sehen Sie unser aktuelles Gebrauchtmaschinenangebot auf unserer Website an.', rental: 'Für Vermietungen besuchen Sie bitte unsere Vermietungsseite.', machine: 'Geht Ihre Frage um eine neue oder bestehende Maschine?', general: 'Wie möchten Sie Kontakt aufnehmen?', ask: 'Geben Sie gerne Ihre Frage ein.' },
     followUp: { new: 'Worüber möchten Sie mehr erfahren?', existing: 'Worum geht es bei Ihrer Frage?', unknown: 'Kein Problem. Um welche Maschine oder Arbeiten geht es?' },
-    menu: [{ id: 'parts', label: 'Ersatzteil suchen' }, { id: 'workshop', label: 'Reparatur / Service' }, { id: 'occasion', label: 'Gebrauchtmaschinen' }, { id: 'rental', label: 'Maschine mieten' }, { id: 'general', label: 'Kontakt' }],
+    machineSelectionTitle: 'Wonach suchen Sie?', backTopics: 'Zurück zu Themen',
+    menu: [{ id: 'parts', label: 'Ersatzteil suchen' }, { id: 'workshop', label: 'Reparatur / Service' }, { id: 'occasion', label: 'Gebrauchtmaschinen' }, { id: 'machine-options', label: 'Maschine kaufen oder mieten' }, { id: 'general', label: 'Kontakt' }],
     choices: {
       parts: [{ id: 'webshop', label: 'Zum Webshop', href: 'https://webshop.wimvanbreda.nl' }, { id: 'parts-form', label: 'Teil nicht gefunden' }, { id: 'callback', label: 'Rückruf anfordern' }, { id: 'form', label: 'Kontakt' }, { id: 'ask', label: 'Weitere Frage stellen' }],
       machine: [{ id: 'new', label: 'Neue Maschine' }, { id: 'existing', label: 'Bestehende Maschine' }, { id: 'unknown', label: 'Ich weiß es nicht' }],
@@ -122,6 +128,7 @@ export const translations: Record<Language, Labels> = {
       general: [{ id: 'call', label: 'Jetzt anrufen' }, { id: 'form', label: 'Stellen Sie Ihre Frage' }],
       machineNew: [{ id: 'specifications', label: 'Spezifikationen' }, { id: 'application', label: 'Einsatzbereich' }, { id: 'form', label: 'Maschine anfragen' }, { id: 'rental', label: 'Vermietung' }, { id: 'occasion', label: 'Gebrauchtmaschinen' }, { id: 'ask', label: 'Stellen Sie Ihre Frage' }, { id: 'callback', label: 'Rückruf anfordern' }, { id: 'form', label: 'Kontakt' }],
       machineExisting: [{ id: 'parts', label: 'Ersatzteile' }, { id: 'workshop', label: 'Wartung' }, { id: 'workshop', label: 'Reparatur' }, { id: 'documentation', label: 'Dokumentation' }, { id: 'ask', label: 'Stellen Sie Ihre Frage' }, { id: 'form', label: 'Kontakt' }],
+      machineOptions: [{ id: 'new-machine-link', label: 'Neue Maschine kaufen', description: 'Sehen Sie das vollständige Angebot neuer Maschinen an.', href: 'https://wimvanbreda.nl/aanbod/machine-overzicht/' }, { id: 'rental-link', label: 'Maschine mieten', description: 'Sehen Sie verfügbare Maschinen zur vorübergehenden Miete an.', href: 'https://wimvanbreda.nl/verhuur/' }, { id: 'occasion-link', label: 'Gebrauchtmaschine ansehen', description: 'Sehen Sie unser aktuelles Angebot gebrauchter Maschinen an.', href: 'https://wimvanbreda.nl/occasions-overzicht/' }, { id: 'back-topics', label: 'Zurück zu Themen' }],
     },
   },
 };
