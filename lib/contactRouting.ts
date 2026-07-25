@@ -9,18 +9,19 @@ export type ContactType =
 
 export type Flow = 'parts' | 'machine' | 'workshop' | 'occasion' | 'rental' | 'general';
 
-const contactConfig: Record<ContactType, { environment: string; subject: string }> = {
-  WORKSHOP: { environment: 'WORKSHOP_TO', subject: 'Werkplaatsvraag' },
-  WORKSHOP_CALLBACK: { environment: 'WORKSHOP_TO', subject: 'Terugbelverzoek werkplaats' },
-  SALES: { environment: 'SALES_TO', subject: 'Machineaanvraag' },
-  SALES_CALLBACK: { environment: 'SALES_TO', subject: 'Terugbelverzoek verkoop' },
-  PARTS: { environment: 'PARTS_TO', subject: 'Onderdelenvraag' },
-  PARTS_CALLBACK: { environment: 'PARTS_TO', subject: 'Terugbelverzoek onderdelen' },
-  RECEPTION: { environment: 'RECEPTION_TO', subject: 'Algemene contactvraag' },
+const contactConfig: Record<ContactType, { environments: string[]; fallback: string; subject: string }> = {
+  WORKSHOP: { environments: ['SERVICE_EMAIL', 'WORKSHOP_TO'], fallback: 'werkplaats@wimvanbreda.nl', subject: 'Werkplaatsvraag' },
+  WORKSHOP_CALLBACK: { environments: ['SERVICE_EMAIL', 'WORKSHOP_TO'], fallback: 'werkplaats@wimvanbreda.nl', subject: 'Terugbelverzoek werkplaats' },
+  SALES: { environments: ['SALES_EMAIL', 'SALES_TO'], fallback: 'wimvanbreda@wimvanbreda.nl', subject: 'Machineaanvraag' },
+  SALES_CALLBACK: { environments: ['SALES_EMAIL', 'SALES_TO'], fallback: 'wimvanbreda@wimvanbreda.nl', subject: 'Terugbelverzoek verkoop' },
+  PARTS: { environments: ['PARTS_EMAIL', 'PARTS_TO'], fallback: 'magazijn@wimvanbreda.nl', subject: 'Onderdelenvraag' },
+  PARTS_CALLBACK: { environments: ['PARTS_EMAIL', 'PARTS_TO'], fallback: 'magazijn@wimvanbreda.nl', subject: 'Terugbelverzoek onderdelen' },
+  RECEPTION: { environments: ['GENERAL_CONTACT_EMAIL', 'RECEPTION_TO'], fallback: 'receptie@wimvanbreda.nl', subject: 'Algemene contactvraag' },
 };
 
-export function getRecipient(type: ContactType): string | undefined {
-  return process.env[contactConfig[type].environment];
+export function getRecipient(type: ContactType): string {
+  const config = contactConfig[type];
+  return config.environments.map((environment) => process.env[environment]).find(Boolean) || config.fallback;
 }
 
 export function getSubject(type: ContactType, name: string, question = ''): string {
