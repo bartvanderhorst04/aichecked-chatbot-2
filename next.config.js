@@ -8,7 +8,7 @@ const nextConfig = {
           {
             key: 'Content-Security-Policy',
             value:
-              "frame-ancestors 'self' https://wimvanbreda.nl https://www.wimvanbreda.nl",
+              "frame-ancestors 'self' https://aichecked.nl https://www.aichecked.nl",
           },
         ],
       },
@@ -18,7 +18,7 @@ const nextConfig = {
           {
             key: 'Content-Security-Policy',
             value:
-              "frame-ancestors 'self' https://wimvanbreda.nl https://www.wimvanbreda.nl",
+              "frame-ancestors 'self' https://aichecked.nl https://www.aichecked.nl",
           },
         ],
       },
