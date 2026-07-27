@@ -16,6 +16,13 @@
   var aicConversationStartedAt = new Date().toISOString();
   var aicConversationPageUrl = document.referrer || window.location.href;
   var aicChatEmailSent = false;
+  var aicLeadSubmitting = false;
+  var aicSubmissionId =
+    window.crypto && typeof window.crypto.randomUUID === "function"
+      ? window.crypto.randomUUID()
+      : Math.random().toString(36).slice(2) +
+        Math.random().toString(36).slice(2) +
+        Date.now().toString(36);
 
   function aicReady(aicCallback) {
     if (document.readyState === "loading") {
@@ -69,28 +76,6 @@
       aicData.content ||
       "Ik kon geen antwoord ophalen. Probeer het zo nog eens."
     );
-  }
-
-  function aicNotifyChatEmail(aicMessagesForEmail, aicContactDetails) {
-    if (aicChatEmailSent) {
-      return;
-    }
-
-    aicChatEmailSent = true;
-    aicPost("/api/send-chat-email", {
-      pageUrl: aicConversationPageUrl,
-      timestamp: new Date().toISOString(),
-      conversationStartedAt: aicConversationStartedAt,
-      contactDetails: aicContactDetails,
-      messages: aicMessagesForEmail.map(function (aicMessage) {
-        return {
-          role: aicMessage.role,
-          content: aicMessage.content
-        };
-      })
-    }).catch(function () {
-      // Email delivery should never block the chatbot experience.
-    });
   }
 
   aicReady(function () {
@@ -150,7 +135,8 @@
     var aicClose = aicCreateElement("button", "aic-close", "×");
     var aicMessagesList = aicCreateElement("div", "aic-messages");
     var aicLead = aicCreateElement("form", "aic-lead");
-    var aicLeadLabel = aicCreateElement("div", "aic-lead-label", "Wil je dat we meekijken? Laat je e-mail achter.");
+    var aicLeadLabel = aicCreateElement("div", "aic-lead-label", "Wil je dat we meekijken? Laat je contactgegevens achter.");
+    var aicLeadNameInput = aicCreateElement("input", "aic-lead-input");
     var aicLeadRow = aicCreateElement("div", "aic-lead-row");
     var aicLeadInput = aicCreateElement("input", "aic-lead-input");
     var aicLeadButton = aicCreateElement("button", "aic-lead-button", "Verstuur");
@@ -164,6 +150,10 @@
     aicClose.setAttribute("aria-label", "Sluit chatbot");
     aicInput.rows = 1;
     aicInput.placeholder = "Typ je bericht...";
+    aicLeadNameInput.type = "text";
+    aicLeadNameInput.name = "name";
+    aicLeadNameInput.placeholder = "Naam";
+    aicLeadNameInput.autocomplete = "name";
     aicLeadInput.type = "email";
     aicLeadInput.name = "email";
     aicLeadInput.placeholder = "naam@bedrijf.nl";
@@ -184,6 +174,7 @@
     aicLeadRow.appendChild(aicLeadInput);
     aicLeadRow.appendChild(aicLeadButton);
     aicLead.appendChild(aicLeadLabel);
+    aicLead.appendChild(aicLeadNameInput);
     aicLead.appendChild(aicLeadRow);
     aicComposer.appendChild(aicInput);
     aicComposer.appendChild(aicSend);
@@ -299,30 +290,53 @@
     });
 
     aicLead.addEventListener("submit", function (aicEvent) {
+      var aicName = aicLeadNameInput.value.trim();
       var aicEmail = aicLeadInput.value.trim();
 
       aicEvent.preventDefault();
       aicMarkInteraction();
 
-      if (!aicEmail) {
+      if (
+        aicLeadSubmitting ||
+        aicChatEmailSent ||
+        !aicName ||
+        !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(aicEmail)
+      ) {
         return;
       }
 
+      aicLeadSubmitting = true;
       aicLeadButton.disabled = true;
-      aicNotifyChatEmail(
-        aicMessages.concat([
+      aicPost("/api/send-chat-email", {
+        submissionId: aicSubmissionId,
+        pageUrl: aicConversationPageUrl,
+        timestamp: new Date().toISOString(),
+        conversationStartedAt: aicConversationStartedAt,
+        contactDetails: {
+          name: aicName,
+          email: aicEmail
+        },
+        messages: aicMessages.concat([
           {
             role: "user",
             content: "Leadformulier verzonden: " + aicEmail
           }
-        ]),
-        {
-          email: aicEmail
-        }
-      );
-      aicLeadLabel.textContent = "Dank je, we nemen contact met je op.";
-      aicLeadRow.classList.add("aic-hidden");
-      aicLeadButton.disabled = false;
+        ])
+      })
+        .then(function () {
+          aicChatEmailSent = true;
+          aicLeadLabel.textContent = "Dank je, we nemen contact met je op.";
+          aicLeadNameInput.classList.add("aic-hidden");
+          aicLeadRow.classList.add("aic-hidden");
+        })
+        .catch(function () {
+          aicLeadLabel.textContent =
+            "Versturen is niet gelukt. Probeer het opnieuw.";
+        })
+        .finally(function () {
+          aicLeadSubmitting = false;
+          aicLeadButton.disabled = false;
+        });
     });
 
     window.setTimeout(function () {

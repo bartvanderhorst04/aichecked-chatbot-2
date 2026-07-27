@@ -2,104 +2,252 @@ import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
 import test from 'node:test';
 import {
-  createLeadIdempotencyKey,
-  validateLeadContact,
-} from '../app/api/send-chat-email/lead-validation.ts';
+  clearProcessedLeadSubmissionsForTests,
+  processLeadSubmission,
+} from '../app/api/send-chat-email/lead-notification.ts';
 
-test('accepts a name with a valid email address', () => {
-  const result = validateLeadContact({
-    name: 'Bart',
-    email: 'bart@example.nl',
-  });
+const componentSource = await readFile(
+  new URL('../components/AICheckedChatbot.tsx', import.meta.url),
+  'utf8'
+);
+const legacyEmbedSource = await readFile(
+  new URL('../public/chatbot-embed.js', import.meta.url),
+  'utf8'
+);
 
-  assert.equal(result.valid, true);
+function sourceBetween(source, start, end) {
+  const startIndex = source.indexOf(start);
+  const endIndex = source.indexOf(end, startIndex + start.length);
+
+  assert.ok(startIndex >= 0, `Missing source marker: ${start}`);
+  assert.ok(endIndex > startIndex, `Missing source marker: ${end}`);
+  return source.slice(startIndex, endIndex);
+}
+
+function assertNoNotificationCall(source) {
+  assert.doesNotMatch(
+    source,
+    /sendChatEmail\s*\(|fetch\(['"]\/api\/send-chat-email/
+  );
+}
+
+function createProviderMock() {
+  const calls = [];
+  return {
+    calls,
+    send: async (submission, idempotencyKey) => {
+      calls.push({ submission, idempotencyKey });
+    },
+  };
+}
+
+test.beforeEach(() => {
+  clearProcessedLeadSubmissionsForTests();
 });
 
-test('accepts a name with a valid phone number and no email', () => {
-  const result = validateLeadContact({
-    name: 'Bart',
-    phone: '+31 6 12345678',
-  });
+test('1. opening the chatbot sends no notification', () => {
+  const launcher = sourceBetween(
+    componentSource,
+    'className="aic-launcher"',
+    'aria-label={isOpen'
+  );
 
-  assert.equal(result.valid, true);
+  assertNoNotificationCall(launcher);
 });
 
-test('rejects a submission without a name', () => {
-  const result = validateLeadContact({ email: 'bart@example.nl' });
+test('2. clicking quick replies sends no notification', () => {
+  const quickReplyFlow = sourceBetween(
+    componentSource,
+    'function handlePainPointSelect',
+    'function handleFollowUpAnswer'
+  );
 
-  assert.equal(result.valid, false);
+  assertNoNotificationCall(quickReplyFlow);
 });
 
-test('rejects a submission without email or phone', () => {
-  const result = validateLeadContact({ name: 'Bart' });
+test('3. starting the AI Scan sends no notification', () => {
+  const openContactForm = sourceBetween(
+    componentSource,
+    'function handleKennismaking',
+    'async function handleLeadSubmit'
+  );
 
-  assert.equal(result.valid, false);
+  assertNoNotificationCall(openContactForm);
 });
 
-test('rejects invalid contact methods', () => {
+test('4. completing the questionnaire sends no notification', () => {
+  const questionnaireCompletion = sourceBetween(
+    componentSource,
+    'function handleFollowUpAnswer',
+    '// Routes typed input'
+  );
+
+  assertNoNotificationCall(questionnaireCompletion);
+});
+
+test('5. displaying the contact form sends no notification', () => {
+  const contactFormView = sourceBetween(
+    componentSource,
+    "{chatState === 'lead-form'",
+    "{/* ── Success state"
+  );
+
+  assertNoNotificationCall(contactFormView);
+});
+
+test('6. submitting without contact details sends no notification', async () => {
+  const provider = createProviderMock();
+  const result = await processLeadSubmission(
+    { submissionId: 'empty-contact-0001' },
+    provider.send
+  );
+
+  assert.equal(result.success, false);
+  assert.equal(provider.calls.length, 0);
+});
+
+test('7. submitting only a name sends no notification', async () => {
+  const provider = createProviderMock();
+  const result = await processLeadSubmission(
+    {
+      submissionId: 'name-only-lead-0001',
+      contactDetails: { name: 'Bart' },
+    },
+    provider.send
+  );
+
+  assert.equal(result.success, false);
+  assert.equal(provider.calls.length, 0);
+});
+
+test('8. submitting an invalid email sends no notification', async () => {
+  const provider = createProviderMock();
+  const result = await processLeadSubmission(
+    {
+      submissionId: 'invalid-email-0001',
+      contactDetails: { name: 'Bart', email: 'geen-geldig-adres' },
+    },
+    provider.send
+  );
+
+  assert.equal(result.success, false);
+  assert.equal(provider.calls.length, 0);
+});
+
+test('9. valid name plus email sends exactly one notification', async () => {
+  const provider = createProviderMock();
+  const result = await processLeadSubmission(
+    {
+      submissionId: 'valid-email-lead-0001',
+      contactDetails: { name: 'Bart', email: 'bart@example.nl' },
+    },
+    provider.send
+  );
+
+  assert.equal(result.success, true);
+  assert.equal(provider.calls.length, 1);
+});
+
+test('10. valid name plus phone sends exactly one notification', async () => {
+  const provider = createProviderMock();
+  const result = await processLeadSubmission(
+    {
+      submissionId: 'valid-phone-lead-0001',
+      contactDetails: { name: 'Bart', phone: '+31 6 12345678' },
+    },
+    provider.send
+  );
+
+  assert.equal(result.success, true);
+  assert.equal(provider.calls.length, 1);
+});
+
+test('11. repeating the same submission ID sends no duplicate', async () => {
+  const provider = createProviderMock();
+  const payload = {
+    submissionId: 'repeated-lead-0001',
+    contactDetails: { name: 'Bart', email: 'bart@example.nl' },
+  };
+
+  const [first, repeated] = await Promise.all([
+    processLeadSubmission(payload, provider.send),
+    processLeadSubmission(payload, provider.send),
+  ]);
+  const sequentialRepeat = await processLeadSubmission(payload, provider.send);
+
+  assert.equal(first.success, true);
+  assert.equal(repeated.success, true);
+  assert.equal(sequentialRepeat.success, true);
+  assert.equal(provider.calls.length, 1);
   assert.equal(
-    validateLeadContact({ name: 'Bart', email: 'ongeldig' }).valid,
-    false
-  );
-  assert.equal(
-    validateLeadContact({ name: 'Bart', phone: '123' }).valid,
-    false
+    provider.calls[0].idempotencyKey,
+    'aichecked-lead-repeated-lead-0001'
   );
 });
 
-test('generates one stable idempotency key for repeated lead requests', () => {
-  const first = validateLeadContact({
-    name: ' Bart ',
-    email: 'BART@EXAMPLE.NL',
-    need: 'AI scan',
-  });
-  const repeated = validateLeadContact({
-    name: 'Bart',
-    email: 'bart@example.nl',
-    need: 'AI scan',
-  });
+test('a provider failure is not treated as a successful submission', async () => {
+  let calls = 0;
+  const failingProvider = async () => {
+    calls += 1;
+    throw new Error('Provider unavailable');
+  };
+  const payload = {
+    submissionId: 'failed-provider-0001',
+    contactDetails: { name: 'Bart', email: 'bart@example.nl' },
+  };
 
-  assert.equal(first.valid, true);
-  assert.equal(repeated.valid, true);
-  if (!first.valid || !repeated.valid) return;
+  await assert.rejects(processLeadSubmission(payload, failingProvider));
+  await assert.rejects(processLeadSubmission(payload, failingProvider));
+  assert.equal(calls, 2);
+});
 
-  assert.equal(
-    createLeadIdempotencyKey(first.contactDetails),
-    createLeadIdempotencyKey(repeated.contactDetails)
+test('one valid contact method is sufficient', async () => {
+  const provider = createProviderMock();
+  const result = await processLeadSubmission(
+    {
+      submissionId: 'valid-phone-fallback-0001',
+      contactDetails: {
+        name: 'Bart',
+        email: 'ongeldig',
+        phone: '+31 6 12345678',
+      },
+    },
+    provider.send
+  );
+
+  assert.equal(result.success, true);
+  assert.equal(provider.calls.length, 1);
+  assert.equal(provider.calls[0].submission.contactDetails.email, '');
+});
+
+test('the endpoint exists only in the explicit React submit path', () => {
+  const endpointCalls =
+    componentSource.match(/fetch\('\/api\/send-chat-email'/g) || [];
+  const leadSubmit = sourceBetween(
+    componentSource,
+    'async function handleLeadSubmit',
+    'function handleKeyDown'
+  );
+
+  assert.equal(endpointCalls.length, 1);
+  assert.match(leadSubmit, /fetch\('\/api\/send-chat-email'/);
+  assert.ok(
+    leadSubmit.indexOf('await request') <
+      leadSubmit.indexOf("setChatState('lead-success')")
   );
 });
 
-test('the API validates before calling Resend and supplies idempotency', async () => {
-  const source = await readFile(
-    new URL('../app/api/send-chat-email/route.ts', import.meta.url),
-    'utf8'
-  );
-  const validationPosition = source.indexOf(
-    'validateLeadContact(data.contactDetails)'
-  );
-  const resendPosition = source.indexOf(
-    "fetch('https://api.resend.com/emails'"
+test('the legacy embed only notifies from its explicit form submit handler', () => {
+  const endpointCalls =
+    legacyEmbedSource.match(/aicPost\("\/api\/send-chat-email"/g) || [];
+  const formSubmit = sourceBetween(
+    legacyEmbedSource,
+    'aicLead.addEventListener("submit"',
+    'window.setTimeout(function ()'
   );
 
-  assert.ok(validationPosition >= 0);
-  assert.ok(resendPosition > validationPosition);
-  assert.match(source, /'Idempotency-Key': idempotencyKey/);
-});
-
-test('only submits the React lead notification after form completion', async () => {
-  const source = await readFile(
-    new URL('../components/AICheckedChatbot.tsx', import.meta.url),
-    'utf8'
-  );
-  const openFormHandler = source.match(
-    /function handleKennismaking[\s\S]*?\n  }\n\n  async function handleLeadSubmit/
-  )?.[0];
-  const submitHandler = source.match(
-    /async function handleLeadSubmit[\s\S]*?\n  }\n\n  function handleKeyDown/
-  )?.[0];
-
-  assert.ok(openFormHandler);
-  assert.ok(submitHandler);
-  assert.doesNotMatch(openFormHandler, /sendChatEmail/);
-  assert.match(submitHandler, /await sendChatEmail\(nextMessages, data\)/);
+  assert.equal(endpointCalls.length, 1);
+  assert.match(formSubmit, /aicPost\("\/api\/send-chat-email"/);
+  assert.match(formSubmit, /aicLeadSubmitting/);
+  assert.match(formSubmit, /submissionId: aicSubmissionId/);
 });

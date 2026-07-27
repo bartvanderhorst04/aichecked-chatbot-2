@@ -143,6 +143,14 @@ function uid() {
   return Math.random().toString(36).slice(2);
 }
 
+function createSubmissionId() {
+  if (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function') {
+    return crypto.randomUUID();
+  }
+
+  return `${uid()}${uid()}${Date.now().toString(36)}`;
+}
+
 // ─── Sub-components ──────────────────────────────────────────────────────────
 
 function TypingDots() {
@@ -313,7 +321,7 @@ function LeadFormView({
   onSubmit,
   onBack,
 }: {
-  onSubmit: (data: LeadForm) => Promise<void>;
+  onSubmit: (data: LeadForm, submissionId: string) => Promise<void>;
   onBack: () => void;
 }) {
   const [form, setForm] = useState<LeadForm>({
@@ -328,6 +336,7 @@ function LeadFormView({
   const [loading, setLoading] = useState(false);
   const [submitError, setSubmitError] = useState('');
   const submittingRef = useRef(false);
+  const submissionIdRef = useRef(createSubmissionId());
 
   function validate() {
     const e: Partial<LeadForm> = {};
@@ -337,19 +346,23 @@ function LeadFormView({
     )
       e.website = 'Ongeldige website (bijv. https://www.jouwbedrijf.nl)';
     if (!form.name.trim()) e.name = 'Naam is verplicht';
-    if (form.email.trim() && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(form.email))
-      e.email = 'Ongeldig e-mailadres';
+    else if (form.name.trim().length > 100) e.name = 'Naam is te lang';
+    const hasValidEmail = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(
+      form.email.trim()
+    );
     const phoneDigits = form.phone.replace(/\D/g, '');
-    if (
-      form.phone.trim() &&
-      (!/^\+?[\d\s().-]+$/.test(form.phone.trim()) ||
-        phoneDigits.length < 7 ||
-        phoneDigits.length > 15)
-    )
-      e.phone = 'Ongeldig telefoonnummer';
-    if (!form.email.trim() && !form.phone.trim()) {
-      e.email = 'Vul een e-mailadres of telefoonnummer in';
-      e.phone = 'Vul een e-mailadres of telefoonnummer in';
+    const hasValidPhone =
+      /^\+?[\d\s().-]+$/.test(form.phone.trim()) &&
+      phoneDigits.length >= 7 &&
+      phoneDigits.length <= 15;
+    if (!hasValidEmail && !hasValidPhone) {
+      if (!form.email.trim() && !form.phone.trim()) {
+        e.email = 'Vul een e-mailadres of telefoonnummer in';
+        e.phone = 'Vul een e-mailadres of telefoonnummer in';
+      } else {
+        if (form.email.trim()) e.email = 'Ongeldig e-mailadres';
+        if (form.phone.trim()) e.phone = 'Ongeldig telefoonnummer';
+      }
     }
     setErrors(e);
     return Object.keys(e).length === 0;
@@ -363,7 +376,7 @@ function LeadFormView({
     setSubmitError('');
     setLoading(true);
     try {
-      await onSubmit(form);
+      await onSubmit(form, submissionIdRef.current);
     } catch {
       setSubmitError(
         'Je aanvraag kon niet worden verzonden. Probeer het opnieuw.'
@@ -649,57 +662,6 @@ export default function AICheckedChatbot() {
     [isLoading, isDesktopViewport]
   );
 
-  const sendChatEmail = useCallback((nextMessages: Message[], contactDetails?: LeadForm) => {
-    if (typeof window === 'undefined') {
-      return Promise.reject(new Error('Lead submission is only available in the browser.'));
-    }
-    if (!contactDetails) {
-      return Promise.reject(new Error('Contact details are required.'));
-    }
-    if (chatEmailSentRef.current) return Promise.resolve();
-    if (chatEmailPendingRef.current) return chatEmailPendingRef.current;
-
-    const pageUrl = conversationPageUrlRef.current || document.referrer || window.location.href;
-    const messagesForEmail = nextMessages
-      .filter((message) => !message.isTyping)
-      .map((message) => ({
-        role: message.role,
-        content: message.content,
-      }));
-
-    const request = fetch('/api/send-chat-email', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      keepalive: true,
-      body: JSON.stringify({
-        pageUrl,
-        timestamp: new Date().toISOString(),
-        conversationStartedAt: conversationStartedAtRef.current,
-        contactDetails: contactDetails
-          ? {
-              name: contactDetails.name,
-              email: contactDetails.email,
-              phone: contactDetails.phone,
-              website: contactDetails.website,
-              company: contactDetails.company,
-              need: contactDetails.need,
-            }
-          : undefined,
-        messages: messagesForEmail,
-      }),
-    }).then(async (response) => {
-      if (!response.ok) {
-        throw new Error(`Lead notification failed with status ${response.status}`);
-      }
-      chatEmailSentRef.current = true;
-    }).finally(() => {
-      chatEmailPendingRef.current = null;
-    });
-
-    chatEmailPendingRef.current = request;
-    return request;
-  }, []);
-
   // Auto-scroll
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -871,7 +833,13 @@ export default function AICheckedChatbot() {
     setChatState('lead-form');
   }
 
-  async function handleLeadSubmit(data: LeadForm) {
+  async function handleLeadSubmit(data: LeadForm, submissionId: string) {
+    if (chatEmailSentRef.current) return;
+    if (chatEmailPendingRef.current) {
+      await chatEmailPendingRef.current;
+      return;
+    }
+
     const nextMessages: Message[] = [
       ...messages,
       {
@@ -889,7 +857,47 @@ export default function AICheckedChatbot() {
       },
     ];
 
-    await sendChatEmail(nextMessages, data);
+    const pageUrl =
+      conversationPageUrlRef.current || document.referrer || window.location.href;
+    const request = fetch('/api/send-chat-email', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      keepalive: true,
+      body: JSON.stringify({
+        submissionId,
+        pageUrl,
+        timestamp: new Date().toISOString(),
+        conversationStartedAt: conversationStartedAtRef.current,
+        contactDetails: {
+          name: data.name,
+          email: data.email,
+          phone: data.phone,
+          website: data.website,
+          company: data.company,
+          need: data.need,
+        },
+        messages: nextMessages
+          .filter((message) => !message.isTyping)
+          .map((message) => ({
+            role: message.role,
+            content: message.content,
+          })),
+      }),
+    })
+      .then(async (response) => {
+        if (!response.ok) {
+          throw new Error(
+            `Lead notification failed with status ${response.status}`
+          );
+        }
+        chatEmailSentRef.current = true;
+      })
+      .finally(() => {
+        chatEmailPendingRef.current = null;
+      });
+
+    chatEmailPendingRef.current = request;
+    await request;
     setMessages(nextMessages);
     setChatState('lead-success');
   }

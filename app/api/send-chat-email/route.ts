@@ -1,22 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server';
 import {
-  createLeadIdempotencyKey,
-  type LeadContactDetails,
-  validateLeadContact,
-} from './lead-validation';
-
-interface ChatEmailMessage {
-  role?: string;
-  content?: string;
-}
-
-interface ChatEmailPayload {
-  pageUrl?: string;
-  timestamp?: string;
-  conversationStartedAt?: string;
-  contactDetails?: LeadContactDetails;
-  messages?: ChatEmailMessage[];
-}
+  processLeadSubmission,
+  type ChatEmailMessage,
+  type LeadSubmissionPayload,
+  type ValidLeadSubmission,
+} from './lead-notification';
+import type { ValidLeadContactDetails } from './lead-validation';
 
 function formatTimestamp(value?: string) {
   const date = value ? new Date(value) : new Date();
@@ -44,7 +33,7 @@ function formatTranscript(messages: ChatEmailMessage[] = []) {
     .join('\n\n');
 }
 
-function formatContactDetails(contactDetails: LeadContactDetails) {
+function formatContactDetails(contactDetails: ValidLeadContactDetails) {
   return [
     `Naam: ${contactDetails.name}`,
     `E-mail: ${contactDetails.email || 'Niet opgegeven'}`,
@@ -55,39 +44,35 @@ function formatContactDetails(contactDetails: LeadContactDetails) {
   ].join('\n');
 }
 
-export async function POST(req: NextRequest) {
-  try {
-    if (!process.env.RESEND_API_KEY) {
-      return NextResponse.json({ error: 'RESEND_API_KEY is not configured' }, { status: 500 });
-    }
+async function sendLeadEmailWithResend(
+  submission: ValidLeadSubmission,
+  idempotencyKey: string
+) {
+  if (!process.env.RESEND_API_KEY) {
+    throw new Error('RESEND_API_KEY is not configured');
+  }
 
-    const data: ChatEmailPayload = await req.json();
-    const validation = validateLeadContact(data.contactDetails);
+  const messages = Array.isArray(submission.messages) ? submission.messages : [];
+  const timestamp = formatTimestamp(submission.timestamp);
+  const conversationStartedAt = formatTimestamp(
+    submission.conversationStartedAt || submission.timestamp
+  );
+  const pageUrl = String(submission.pageUrl || 'Niet opgegeven');
+  const transcript = formatTranscript(messages);
+  const contactDetails = formatContactDetails(submission.contactDetails);
 
-    if (!validation.valid) {
-      return NextResponse.json({ error: validation.error }, { status: 400 });
-    }
-
-    const messages = Array.isArray(data.messages) ? data.messages : [];
-    const timestamp = formatTimestamp(data.timestamp);
-    const conversationStartedAt = formatTimestamp(data.conversationStartedAt || data.timestamp);
-    const pageUrl = String(data.pageUrl || 'Niet opgegeven');
-    const transcript = formatTranscript(messages);
-    const contactDetails = formatContactDetails(validation.contactDetails);
-    const idempotencyKey = createLeadIdempotencyKey(validation.contactDetails);
-
-    const resendResponse = await fetch('https://api.resend.com/emails', {
-      method: 'POST',
-      headers: {
-        Authorization: `Bearer ${process.env.RESEND_API_KEY}`,
-        'Content-Type': 'application/json',
-        'Idempotency-Key': idempotencyKey,
-      },
-      body: JSON.stringify({
-        from: 'AIChecked Chatbot <chatbot@aichecked.nl>',
-        to: ['info@aichecked.nl'],
-        subject: 'Nieuwe chatbot aanvraag - AIChecked.nl',
-        text: `
+  const resendResponse = await fetch('https://api.resend.com/emails', {
+    method: 'POST',
+    headers: {
+      Authorization: `Bearer ${process.env.RESEND_API_KEY}`,
+      'Content-Type': 'application/json',
+      'Idempotency-Key': idempotencyKey,
+    },
+    body: JSON.stringify({
+      from: 'AIChecked Chatbot <chatbot@aichecked.nl>',
+      to: ['info@aichecked.nl'],
+      subject: 'Nieuwe chatbot aanvraag - AIChecked.nl',
+      text: `
 Nieuwe chatbot aanvraag - AIChecked.nl
 =====================================
 
@@ -106,15 +91,25 @@ ${contactDetails}
 Volledig gesprek:
 ${transcript}
       `.trim(),
-      }),
-    });
+    }),
+  });
 
-    if (!resendResponse.ok) {
-      console.error('Resend error:', resendResponse.status, await resendResponse.text());
-      return NextResponse.json({ error: 'Failed to send lead notification' }, { status: 502 });
+  if (!resendResponse.ok) {
+    console.error('Resend error:', resendResponse.status, await resendResponse.text());
+    throw new Error('Failed to send lead notification');
+  }
+}
+
+export async function POST(req: NextRequest) {
+  try {
+    const data = (await req.json()) as LeadSubmissionPayload;
+    const result = await processLeadSubmission(data, sendLeadEmailWithResend);
+
+    if (!result.success) {
+      return NextResponse.json({ error: result.error }, { status: result.status });
     }
 
-    return NextResponse.json({ success: true });
+    return NextResponse.json(result);
   } catch (error) {
     console.error('Send chat email API error:', error);
     return NextResponse.json({ error: 'Failed to send chat email' }, { status: 500 });
