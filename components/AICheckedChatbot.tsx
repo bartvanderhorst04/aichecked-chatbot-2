@@ -326,28 +326,52 @@ function LeadFormView({
   });
   const [errors, setErrors] = useState<Partial<LeadForm>>({});
   const [loading, setLoading] = useState(false);
+  const [submitError, setSubmitError] = useState('');
+  const submittingRef = useRef(false);
 
   function validate() {
     const e: Partial<LeadForm> = {};
-    if (!form.website.trim()) e.website = 'Website is verplicht';
-    else if (!/^(https?:\/\/)?([\w-]+\.)+[a-z]{2,}(\/\S*)?$/i.test(form.website.trim()))
+    if (
+      form.website.trim() &&
+      !/^(https?:\/\/)?([\w-]+\.)+[a-z]{2,}(\/\S*)?$/i.test(form.website.trim())
+    )
       e.website = 'Ongeldige website (bijv. https://www.jouwbedrijf.nl)';
     if (!form.name.trim()) e.name = 'Naam is verplicht';
-    if (!form.company.trim()) e.company = 'Bedrijfsnaam is verplicht';
-    if (!form.email.trim()) e.email = 'E-mail is verplicht';
-    else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(form.email))
+    if (form.email.trim() && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(form.email))
       e.email = 'Ongeldig e-mailadres';
-    if (!form.need.trim()) e.need = 'Beschrijf kort waarmee je geholpen wilt worden';
+    const phoneDigits = form.phone.replace(/\D/g, '');
+    if (
+      form.phone.trim() &&
+      (!/^\+?[\d\s().-]+$/.test(form.phone.trim()) ||
+        phoneDigits.length < 7 ||
+        phoneDigits.length > 15)
+    )
+      e.phone = 'Ongeldig telefoonnummer';
+    if (!form.email.trim() && !form.phone.trim()) {
+      e.email = 'Vul een e-mailadres of telefoonnummer in';
+      e.phone = 'Vul een e-mailadres of telefoonnummer in';
+    }
     setErrors(e);
     return Object.keys(e).length === 0;
   }
 
   async function handleSubmit(ev: React.FormEvent) {
     ev.preventDefault();
-    if (!validate()) return;
+    if (submittingRef.current || !validate()) return;
+
+    submittingRef.current = true;
+    setSubmitError('');
     setLoading(true);
-    await onSubmit(form);
-    setLoading(false);
+    try {
+      await onSubmit(form);
+    } catch {
+      setSubmitError(
+        'Je aanvraag kon niet worden verzonden. Probeer het opnieuw.'
+      );
+    } finally {
+      submittingRef.current = false;
+      setLoading(false);
+    }
   }
 
   const field = (
@@ -508,14 +532,20 @@ function LeadFormView({
           'Website',
           'text',
           'https://www.jouwbedrijf.nl',
-          false,
+          true,
           'Vul je website in zodat we jouw bedrijf kunnen analyseren.'
         )}
         {field('name', 'Naam', 'text', 'Jan de Vries')}
-        {field('company', 'Bedrijf', 'text', 'Bedrijfsnaam BV')}
-        {field('email', 'E-mail', 'email', 'jan@bedrijf.nl')}
+        {field('company', 'Bedrijf', 'text', 'Bedrijfsnaam BV', true)}
+        {field('email', 'E-mail', 'email', 'jan@bedrijf.nl', true)}
         {field('phone', 'Telefoon', 'tel', '+31 6 12345678', true)}
-        {field('need', 'Waarmee kan ik je helpen?', 'text', 'Beschrijf kort je vraag of project...')}
+        {field(
+          'need',
+          'Waarmee kan ik je helpen?',
+          'text',
+          'Beschrijf kort je vraag of project...',
+          true
+        )}
 
         <button
           type="submit"
@@ -539,6 +569,19 @@ function LeadFormView({
         >
           {loading ? 'Versturen...' : 'Verstuur aanvraag →'}
         </button>
+        {submitError && (
+          <p
+            role="alert"
+            style={{
+              margin: '8px 0 0',
+              fontSize: 11,
+              color: 'rgba(239,68,68,0.9)',
+              textAlign: 'center',
+            }}
+          >
+            {submitError}
+          </p>
+        )}
       </form>
     </div>
   );
@@ -567,6 +610,7 @@ export default function AICheckedChatbot() {
     typeof window === 'undefined' ? '' : document.referrer || window.location.href
   );
   const chatEmailSentRef = useRef(false);
+  const chatEmailPendingRef = useRef<Promise<void> | null>(null);
 
   // When embedded in an iframe (chat.aichecked.nl/embed on the static site),
   // tell the parent loader script to resize the iframe on open/close.
@@ -606,10 +650,15 @@ export default function AICheckedChatbot() {
   );
 
   const sendChatEmail = useCallback((nextMessages: Message[], contactDetails?: LeadForm) => {
-    if (typeof window === 'undefined') return;
-    if (chatEmailSentRef.current) return;
+    if (typeof window === 'undefined') {
+      return Promise.reject(new Error('Lead submission is only available in the browser.'));
+    }
+    if (!contactDetails) {
+      return Promise.reject(new Error('Contact details are required.'));
+    }
+    if (chatEmailSentRef.current) return Promise.resolve();
+    if (chatEmailPendingRef.current) return chatEmailPendingRef.current;
 
-    chatEmailSentRef.current = true;
     const pageUrl = conversationPageUrlRef.current || document.referrer || window.location.href;
     const messagesForEmail = nextMessages
       .filter((message) => !message.isTyping)
@@ -618,7 +667,7 @@ export default function AICheckedChatbot() {
         content: message.content,
       }));
 
-    void fetch('/api/send-chat-email', {
+    const request = fetch('/api/send-chat-email', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       keepalive: true,
@@ -631,13 +680,24 @@ export default function AICheckedChatbot() {
               name: contactDetails.name,
               email: contactDetails.email,
               phone: contactDetails.phone,
+              website: contactDetails.website,
+              company: contactDetails.company,
+              need: contactDetails.need,
             }
           : undefined,
         messages: messagesForEmail,
       }),
-    }).catch(() => {
-      // Email delivery should never block the chatbot experience.
+    }).then(async (response) => {
+      if (!response.ok) {
+        throw new Error(`Lead notification failed with status ${response.status}`);
+      }
+      chatEmailSentRef.current = true;
+    }).finally(() => {
+      chatEmailPendingRef.current = null;
     });
+
+    chatEmailPendingRef.current = request;
+    return request;
   }, []);
 
   // Auto-scroll
@@ -807,10 +867,6 @@ export default function AICheckedChatbot() {
       { id: uid(), role: 'user', content: label },
     ];
 
-    if (label === 'Ontvang mijn AI Scan') {
-      sendChatEmail(nextMessages);
-    }
-
     setMessages(nextMessages);
     setChatState('lead-form');
   }
@@ -833,7 +889,7 @@ export default function AICheckedChatbot() {
       },
     ];
 
-    sendChatEmail(nextMessages, data);
+    await sendChatEmail(nextMessages, data);
     setMessages(nextMessages);
     setChatState('lead-success');
   }

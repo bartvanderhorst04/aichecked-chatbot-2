@@ -1,5 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { Resend } from 'resend';
+import {
+  createLeadIdempotencyKey,
+  type LeadContactDetails,
+  validateLeadContact,
+} from './lead-validation';
 
 interface ChatEmailMessage {
   role?: string;
@@ -10,11 +14,7 @@ interface ChatEmailPayload {
   pageUrl?: string;
   timestamp?: string;
   conversationStartedAt?: string;
-  contactDetails?: {
-    name?: string;
-    email?: string;
-    phone?: string;
-  };
+  contactDetails?: LeadContactDetails;
   messages?: ChatEmailMessage[];
 }
 
@@ -44,19 +44,14 @@ function formatTranscript(messages: ChatEmailMessage[] = []) {
     .join('\n\n');
 }
 
-function formatContactDetails(contactDetails?: ChatEmailPayload['contactDetails']) {
-  if (!contactDetails) {
-    return 'Niet opgegeven.';
-  }
-
-  const name = String(contactDetails.name || '').trim() || 'Niet opgegeven';
-  const email = String(contactDetails.email || '').trim() || 'Niet opgegeven';
-  const phone = String(contactDetails.phone || '').trim() || 'Niet opgegeven';
-
+function formatContactDetails(contactDetails: LeadContactDetails) {
   return [
-    `Naam: ${name}`,
-    `E-mail: ${email}`,
-    `Telefoon: ${phone}`,
+    `Naam: ${contactDetails.name}`,
+    `E-mail: ${contactDetails.email || 'Niet opgegeven'}`,
+    `Telefoon: ${contactDetails.phone || 'Niet opgegeven'}`,
+    `Website: ${contactDetails.website || 'Niet opgegeven'}`,
+    `Bedrijf: ${contactDetails.company || 'Niet opgegeven'}`,
+    `Hulpvraag: ${contactDetails.need || 'Niet opgegeven'}`,
   ].join('\n');
 }
 
@@ -67,20 +62,32 @@ export async function POST(req: NextRequest) {
     }
 
     const data: ChatEmailPayload = await req.json();
+    const validation = validateLeadContact(data.contactDetails);
+
+    if (!validation.valid) {
+      return NextResponse.json({ error: validation.error }, { status: 400 });
+    }
+
     const messages = Array.isArray(data.messages) ? data.messages : [];
     const timestamp = formatTimestamp(data.timestamp);
     const conversationStartedAt = formatTimestamp(data.conversationStartedAt || data.timestamp);
     const pageUrl = String(data.pageUrl || 'Niet opgegeven');
     const transcript = formatTranscript(messages);
-    const contactDetails = formatContactDetails(data.contactDetails);
+    const contactDetails = formatContactDetails(validation.contactDetails);
+    const idempotencyKey = createLeadIdempotencyKey(validation.contactDetails);
 
-    const resend = new Resend(process.env.RESEND_API_KEY);
-
-    await resend.emails.send({
-      from: 'AIChecked Chatbot <chatbot@aichecked.nl>',
-      to: ['info@aichecked.nl'],
-      subject: 'Nieuwe chatbot aanvraag - AIChecked.nl',
-      text: `
+    const resendResponse = await fetch('https://api.resend.com/emails', {
+      method: 'POST',
+      headers: {
+        Authorization: `Bearer ${process.env.RESEND_API_KEY}`,
+        'Content-Type': 'application/json',
+        'Idempotency-Key': idempotencyKey,
+      },
+      body: JSON.stringify({
+        from: 'AIChecked Chatbot <chatbot@aichecked.nl>',
+        to: ['info@aichecked.nl'],
+        subject: 'Nieuwe chatbot aanvraag - AIChecked.nl',
+        text: `
 Nieuwe chatbot aanvraag - AIChecked.nl
 =====================================
 
@@ -99,7 +106,13 @@ ${contactDetails}
 Volledig gesprek:
 ${transcript}
       `.trim(),
+      }),
     });
+
+    if (!resendResponse.ok) {
+      console.error('Resend error:', resendResponse.status, await resendResponse.text());
+      return NextResponse.json({ error: 'Failed to send lead notification' }, { status: 502 });
+    }
 
     return NextResponse.json({ success: true });
   } catch (error) {
